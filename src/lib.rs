@@ -1,24 +1,18 @@
 extern crate thread_id;
 
 use std::thread;
-use std::time::Duration;
+use std::os::raw::c_void;
+
+struct OpaqueCtx(*mut c_void);
+unsafe impl Send for OpaqueCtx {}
 
 #[no_mangle]
-pub extern fn print_thread_id() {
-    println!("current thread id: {}", thread_id::get())
-}
-
-#[no_mangle]
-pub extern fn run_delayed(callback: extern fn()) {
-    println!("run_delayed started (id: {})", thread_id::get());
-
-    thread::spawn(move || {
-        println!("second thread started (id: {})", thread_id::get());
-        thread::sleep(Duration::from_secs(1));
-        println!("second thread done sleeping");
-        callback();
-        println!("second thread finished");
-    });
-
-    println!("run_delayed finished");
+pub unsafe extern "C" fn register(ctx: *mut c_void,
+                                  cb: unsafe extern "C" fn(*mut c_void)) {
+    println!("{:p}", ctx);
+    let ctx = OpaqueCtx(ctx);
+    let _ = thread::spawn(move || {
+           let ctx = ctx.0;
+           cb(ctx);
+     });
 }
